@@ -1,0 +1,30 @@
+.word {
+  margin-top: 50px;
+  text-align: center;
+}
+
+.definition-container {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.pronunciation button {
+  margin-left: 10px;
+}
+
+.word-type {
+  display: flex;
+  align-items: center;
+}
+
+.word-type span {
+  display: inline-block;
+  width: 50px;
+  padding: 2px 0;
+  margin-right: 3px;
+  border-radius: 4px;
+  color: white;
+  background-color: rgb(100 116 139);
+  text-align: center;
+}
