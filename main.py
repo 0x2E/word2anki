@@ -1,3 +1,4 @@
+import json
 import os
 
 import genanki
@@ -85,62 +86,74 @@ def appendNote(deck, model):
     for word in tqdm.tqdm(wordList):
         if word == "":
             continue
-        jsonData = ""
-
+        jsonData = {}
+        definitionField = {}
         wordCache = os.path.join(queryCacheDir, f"{word}.json")
         try:
-            with open(wordCache, "w+") as f:
-                jsonData = f.read()
-                if jsonData == "":
-                    r = requests.get(
-                        apiURL,
-                        params={"q": word},
-                    )
-                    if r.status_code != 200:
-                        raise Exception(f"api error: {r.reason} {r.content}")
-                    jsonData = r.json()
-                    f.write(str(jsonData))
+            if os.path.exists(wordCache):
+                with open(wordCache, "r") as f:
+                    jsonData = json.loads(f.read())
+            if jsonData == {}:
+                r = requests.get(
+                    apiURL,
+                    params={"q": word},
+                )
+                if r.status_code != 200:
+                    raise Exception(f"api error: {r.reason} {r.content}")
+                jsonData = r.json()
+                with open(wordCache, "w") as f:
+                    f.write(json.dumps(jsonData))
         except Exception as e:
             print(f"failed to query word [{word}]: {e}")
             continue
 
-        data = jsonData["value"][0]
-        pronunciation = data["pronunciation"]
-        pronunciationAudio = data["pronunciationAudio"]["contentUrl"]
-        definitions = ""
-        forms = ""
-        meaningGroups = data["meaningGroups"]
-        for item in meaningGroups:
-            meanings = item["meanings"][0]
-            partsOfSpeech = item["partsOfSpeech"][0]
-            if (
-                "description" in partsOfSpeech
-                and partsOfSpeech["description"] == "快速释义"
-            ):
-                t = partsOfSpeechMap(partsOfSpeech["name"])
-                elements = []
-                for i in meanings["richDefinitions"][0]["fragments"]:
-                    elements.append(i["text"])
-                definitions += (
-                    f"<p class='word-type'><span>{t}</span>: {'，'.join(elements)}</p>"
-                )
-            if "name" in partsOfSpeech and partsOfSpeech["name"] == "变形":
-                for i in meanings["richDefinitions"][0]["fragments"]:
-                    forms += f"{i['text']}; "
-                forms = f"<p>变形：{forms}</p>"
-
-        definitionField = definitionTmpl.format(
-            pronunciationAudio=pronunciationAudio,
-            pronunciation=pronunciation,
-            definitions=definitions,
-            forms=forms,
-        )
-
-        deck.add_note(
-            genanki.Note(
-                model=model, fields=[word, definitionField], guid=f"{deckName}-{word}"
+        try:
+            if not isinstance(jsonData, dict):
+                raise Exception("cannot parse json")
+            data = jsonData.get("value", [])
+            if len(data) < 1:
+                raise Exception("bad data strucure")
+            data = data[0]
+            pronunciation = data.get("pronunciation", "")
+            pronunciationAudio = data.get("pronunciationAudio", {}).get(
+                "contentUrl", ""
             )
-        )
+            definitions = ""
+            forms = ""
+            meaningGroups = data.get("meaningGroups", [])
+            for item in meaningGroups:
+                meanings = item["meanings"][0]
+                partsOfSpeech = item["partsOfSpeech"][0]
+                if (
+                    "description" in partsOfSpeech
+                    and partsOfSpeech["description"] == "快速释义"
+                ):
+                    t = partsOfSpeechMap(partsOfSpeech["name"])
+                    elements = []
+                    for i in meanings["richDefinitions"][0]["fragments"]:
+                        elements.append(i["text"])
+                    definitions += f"<p class='word-type'><span>{t}</span>: {'，'.join(elements)}</p>"
+                if "name" in partsOfSpeech and partsOfSpeech["name"] == "变形":
+                    for i in meanings["richDefinitions"][0]["fragments"]:
+                        forms += f"{i['text']}; "
+                    forms = f"<p>变形：{forms}</p>"
+            definitionField = definitionTmpl.format(
+                pronunciationAudio=pronunciationAudio,
+                pronunciation=pronunciation,
+                definitions=definitions,
+                forms=forms,
+            )
+        except Exception as e:
+            print(f"failed to parse [{word}]: {e}")
+
+        if definitionField:
+            deck.add_note(
+                genanki.Note(
+                    model=model,
+                    fields=[word, definitionField],
+                    guid=f"{deckName}-{word}",
+                )
+            )
 
 
 if __name__ == "__main__":
