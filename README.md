@@ -4,6 +4,8 @@
 
 ⚠️ 不保证 Bing API 一直可用，在替换为自己申请的 API 前请勿将本项目用于任何盈利用途。
 
+<p align="center"><img src="./assets/card.png" alt="card preview" width="400px" /></p>
+
 ## 如何使用
 
 1. Python3.6+，安装依赖：
